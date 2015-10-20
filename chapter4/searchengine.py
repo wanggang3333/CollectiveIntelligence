@@ -5,6 +5,8 @@ from BeautifulSoup import *
 from urlparse import urljoin
 from sqlite3 import dbapi2 as sqlite
 
+import nn
+
 #构建一个单词列表，这些单词将被忽略
 ignorewords = set(['the', 'of', 'to', 'and', 'a', 'is', 'it'])
 
@@ -227,6 +229,7 @@ class searcher:
 		rankedscores = sorted([(score,url) for (url,score) in scores.items()],reverse=1)
 		for (score,urlid) in rankedscores[0:10]:
 			print '%f\t%s' % (score, self.geturlname(urlid))
+		return wordids,[r[1] for r in rankedscores[0:10]]
 	
 	#归一化，1表示接近，0表示很远
 	def normalizescores(self, scores, smallIsBetter=0):
@@ -287,3 +290,12 @@ class searcher:
 		maxscore = max(linkscores.values())
 		normalizescores = dict([(u,float(l)/maxscore) for (u,l) in linkscores.items()])
 		return normalizescores
+		
+	mynet  = nn.searchnet('nn.db')
+	
+	def nnscore(self, rows, wordids):
+		#获得一个由唯一的URL ID 构成的有序列表
+		urlids = [urlid for urlid in set([row[0] for row in rows])]
+		nnres = mynet.getresult(wordids, urlids)
+		scores = dict([(urlidd[i],nnres[i]) for i in range(len(urlids))])
+		return self.normalizescores(scores)
